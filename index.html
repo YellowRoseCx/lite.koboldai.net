@@ -6336,20 +6336,56 @@ Current version indicated by LITEVER below.
 		return new_save_storyobj;
 	}
 
-	function load_file(event) {
-		let input = event.target;
+        // Modify the load_file function to accept a File object or a path
+        function load_file(eventOrPath) {
+            let selectedFile;
 
-		if (input.files.length > 0) {
+            if (typeof eventOrPath === 'string') {  // Path provided
+                // For security reasons, direct file system access from a browser is restricted.
+                // This approach assumes the file is accessible via a relative path 
+                // and served by the same web server as the HTML.
 
-			var selectedFile = input.files[0];
+                fetch(eventOrPath)
+                    .then(response => response.blob()) // Get the file as a Blob
+                    .then(blob => {
+                        selectedFile = new File([blob], eventOrPath.split('/').pop()); // Create a File object
+                        load_selected_file(selectedFile);
+                    })
+                    .catch(error => {
+                        console.error("Error loading default file:", error);
+                        msgbox("Error loading default file. Check console for details.");
+                    });
 
-			load_selected_file(selectedFile);
+            } else {  // Event provided (file upload button)
+                let input = eventOrPath.target;
+                if (input.files.length > 0) {
+                    selectedFile = input.files[0];
+                    load_selected_file(selectedFile);
+                    document.getElementById("loadfileinput").value = ""; // Clear the input
+                } else {
+                    console.log("No file to load");
+                }
+            }
+        }
 
-			document.getElementById("loadfileinput").value = "";
-		} else {
-			console.log("No file to load")
-		}
-	};
+
+        // Function to load the default file on page load
+        function loadDefaultFile() {
+            const defaultFilePath = "default.png"; // Replace with the actual file name
+
+            // Check if the file exists (using a HEAD request for efficiency):
+            fetch(defaultFilePath, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                load_file(defaultFilePath); // Load the file if it exists
+                } else {
+                console.log("Default file not found."); // Handle the case where the file doesn't exist
+                }
+            })
+            .catch(error => {
+                console.error("Error checking for default file:", error);
+            });
+        }
 
 	//attempt to load a file from disk. could be any format, even images
 	function load_selected_file(selectedFile)
@@ -20024,7 +20060,8 @@ Current version indicated by LITEVER below.
 
 <script>
 init();
-
+window.onload = loadDefaultFile;
+	
 //this is needed for PWA to work on chrome, so users can install KoboldAI Lite to device
 if ('serviceWorker' in navigator) {
 
