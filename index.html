@@ -3500,9 +3500,6 @@ Current version indicated by LITEVER below.
 			is_local = is_local_url(url);
 		}
 
-		if ((uses_cors_proxy||proxy_by_default) && !is_local) {
-			proxy_part = cors_proxy + "?";
-		}
 		return proxy_part + url;
 	}
 	function get_kobold_header()
@@ -4155,53 +4152,11 @@ Current version indicated by LITEVER below.
 
 	//here is my shit integration of KAI Horde's API. You're welcome. -Concedo.
 	const default_client_agent = "KoboldAiLite:17";
-	const stablehorde_url = "https://aihorde.net";
 	const poll_interval_base_text = 500;
 	const poll_interval_base_img = 3800;
 	const poll_interval_idle = 1000;
 
-	const text_hordes = [
-		{
-			baseurl: "https://aihorde.net",
-			tag: "🤖",
-			sort_order: 1,
-			client_agent: default_client_agent,
-			get perf_endpoint(){return this.baseurl  + "/api/v2/status/performance"},
-			get models_endpoint(){return this.baseurl  + "/api/v2/status/models?type=text"},
-			get submit_endpoint(){return this.baseurl  + "/api/v2/generate/text/async"},
-			get polling_endpoint(){return this.baseurl  + "/api/v2/generate/text/status"},
-			get output_endpoint(){return this.baseurl  + "/api/v2/generate/text/status"},
-			get worker_endpoint(){return this.baseurl  + "/api/v2/workers?type=text"},
-			get finduser_endpoint(){return this.baseurl  + "/api/v2/find_user"},
-			get maintenance_endpoint(){return this.baseurl  + "/api/v2/workers"},
-		}
-	];
-
-	function find_text_horde(clusterurl)
-	{
-		for(let i=0;i<text_hordes.length;++i)
-		{
-			if(text_hordes[i].baseurl==clusterurl)
-			{
-				return text_hordes[i];
-			}
-		}
-		return null;
-	}
-
-	const perf_endpoints = text_hordes.map(a => ({"baseurl":a.baseurl,"fullurl":a.perf_endpoint}));
-	const models_endpoints =  text_hordes.map(a => ({"baseurl":a.baseurl,"fullurl":a.models_endpoint}));
-	const worker_endpoints =  text_hordes.map(a => ({"baseurl":a.baseurl,"fullurl":a.worker_endpoint}));
-	const finduser_endpoints =  text_hordes.map(a => ({"baseurl":a.baseurl,"fullurl":a.finduser_endpoint}));
-
-	const stablehorde_submit_endpoint = stablehorde_url + "/api/v2/generate/async";
-	const stablehorde_poll_endpoint = stablehorde_url + "/api/v2/generate/check";
-	const stablehorde_output_endpoint = stablehorde_url + "/api/v2/generate/status";
-	const stablehorde_model_endpoint = stablehorde_url + "/api/v2/status/models";
-	const stablehorde_submit_interrogate_endpoint = stablehorde_url + "/api/v2/interrogate/async";
-	const stablehorde_output_interrogate_endpoint = stablehorde_url + "/api/v2/interrogate/status";
-
-	const kobold_custom_gen_endpoint = "/api/v1/generate";
+		const kobold_custom_gen_endpoint = "/api/v1/generate";
 	const kobold_custom_gen_stream_endpoint = "/api/extra/generate/stream";
 	const kobold_custom_mdl_endpoint = "/api/v1/model";
 	const kobold_custom_version_endpoint = "/api/v1/info/version";
@@ -4216,27 +4171,6 @@ Current version indicated by LITEVER below.
 	const koboldcpp_transcribe_endpoint = "/api/extra/transcribe";
 	const koboldcpp_tokenize_endpoint = "/api/extra/tokencount";
 	const koboldcpp_perf_endpoint = "/api/extra/perf";
-
-	const oai_models_endpoint = "/models";
-	const oai_submit_endpoint = "/completions";
-	const oai_submit_endpoint_turbo = "/chat/completions";
-
-	const default_oai_image_endpoint = "/images/generations";
-	const default_oai_tts_endpoint = "/audio/speech";
-	const default_dalle_model_name = "dall-e-3";
-
-	const claude_submit_endpoint = "/complete";
-	const claude_submit_endpoint_v3 = "/messages";
-
-	const default_openrouter_base = "https://openrouter.ai/api/v1";
-	const default_mistralai_base = "https://api.mistral.ai/v1";
-	const default_featherless_base = "https://api.featherless.ai/v1";
-	const default_oai_base = "https://api.openai.com";
-	const default_claude_base = "https://api.anthropic.com";
-	const default_palm_base = "https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText?key=";
-	const default_gemini_base = "https://generativelanguage.googleapis.com/v1beta/models/";
-	const default_gemini_suffix = ":generateContent?key=";
-	const default_cohere_base = "https://api.cohere.ai/v1/chat";
 
 	const a1111_models_endpoint = "/sdapi/v1/sd-models";
     const a1111_options_endpoint = "/sdapi/v1/options";
@@ -4254,11 +4188,7 @@ Current version indicated by LITEVER below.
 	const alltalk_gen_endpoint = "/api/tts-generate";
 	const alltalk_voices_endpoint = "/api/voices";
 
-	//support for quick news updates
-	const horde_news_endpoint = "https://hordenews.concedo.workers.dev"
-
 	//if cors is restricted, fall back to our cors proxy
-	const cors_proxy = "https://proxy.concedo.workers.dev"
 
 	const defaultchatopponent = "KoboldAI";
 
@@ -4289,7 +4219,7 @@ Current version indicated by LITEVER below.
 	var retry_preserve_last = false; //if true, retrying does not delete any old text
 	var redo_prev_text = []; //if we undo a retry, save a copy here so it can be reverted with redo
 	var pending_response_id = ""; //guid of response pending from horde server
-	var pending_response_horde = text_hordes[0]; //the url to poll for pending response from a v2 submit
+	var pending_response_horde = ""; //the url to poll for pending response from a v2 submit
 	var poll_in_progress = false; //are we currently waiting for a text generation
 	var poll_ticks_passed = 0; //how much time passed after polling
 	var horde_poll_nearly_completed = false; //if true, increase polling rate
@@ -4326,7 +4256,6 @@ Current version indicated by LITEVER below.
 	var custom_claude_endpoint = "";
 	var custom_claude_key = "";
 	var custom_claude_model = "";
-	var uses_cors_proxy = false; //we start off attempting a direct connection. switch to proxy if that fails
 	var synchro_polled_response = null;
 	var last_stop_reason = ""; //update stop reason if known
 	var synchro_pending_stream = ""; //used for token pseduo streaming for kobold api only
@@ -4365,19 +4294,19 @@ Current version indicated by LITEVER below.
 
 	var localsettings = {
 		my_api_key: "0000000000", //put here so it can be saved and loaded in persistent mode
-		home_cluster: text_hordes[0].baseurl, //which horde does this api key belongs to
+		home_cluster: "", //which horde does this api key belongs to
 		saved_oai_key: "", //do not ever share this in save files!
-		saved_oai_addr: default_oai_base, //do not ever share this in save files!
+		saved_oai_addr: "", //do not ever share this in save files!
 		saved_dalle_key: "",
-		saved_dalle_url: (default_oai_base + "/v1" + default_oai_image_endpoint),
-		saved_dalle_model: default_dalle_model_name,
+		saved_dalle_url: ("" + "/v1" + ""),
+		saved_dalle_model: "",
 		saved_oai_tts_key: "",
-		saved_oai_tts_url: (default_oai_base + "/v1" + default_oai_tts_endpoint),
+		saved_oai_tts_url: ("" + "/v1" + ""),
 		saved_openrouter_key: "",
 		saved_mistralai_key: "",
 		saved_featherless_key: "",
 		saved_claude_key: "", //do not ever share this in save files!
-		saved_claude_addr: default_claude_base, //do not ever share this in save files!
+		saved_claude_addr: "", //do not ever share this in save files!
 		saved_palm_key: "", //do not ever share this in save files!
 		saved_kai_addr: "", //do not ever share this in save files!
 		saved_kai_key: "", //do not ever share this in save files!
@@ -4929,20 +4858,6 @@ Current version indicated by LITEVER below.
 
 		attempt_connect(false);
 
-		//fetch for news updates, for local mode, we don't fetch any news info. They can find updates themselves.
-		if(!localflag)
-		{
-			fetch(horde_news_endpoint)
-			.then(x => x.json())
-			.then(data => {
-				if(data && data!="" && data.newstitle && data.newstext && data.newstitle!="" && data.newstext!="")
-				{
-					msgbox(data.newstext,data.newstitle,true,data.nobtns);
-				}
-			}).catch((error) => {
-				console.log("Error: " + error);
-			});
-		}
 
 		//setup drag and drop zone for files
 		setupDragDrop();
@@ -5072,7 +4987,7 @@ Current version indicated by LITEVER below.
 	function attempt_connect(popup_aiselect = true)
 	{
 		if (localflag) {
-			document.getElementById("customapidropdown").value = 1;
+			document.getElementById("customapidropdown").value = 0;
 			localprotocol = "http://";
 			if(window.location.protocol.includes('https') && !is_using_web_lite())
 			{
@@ -5088,54 +5003,6 @@ Current version indicated by LITEVER below.
 			`KoboldAI Lite v${LITEVER} Embedded`;
 
 			read_url_params_data();
-		}
-		else
-		{
-			//fetch horde performance status as initial login
-			multifetch(perf_endpoints, (resArr, errArr) => {
-				if (resArr && resArr.length > 0) {
-					perfdata = {
-						"queued_requests": 0,
-						"queued_tokens": 0,
-						"past_minute_tokens": 0,
-						"worker_count": 0
-					};
-					for (let i = 0; i < resArr.length; ++i) {
-						let cur = resArr[i].data;
-						if (cur.hasOwnProperty("text_worker_count")) {
-							//new horde api
-							perfdata.queued_requests += cur.queued_text_requests;
-							perfdata.worker_count += cur.text_worker_count;
-							perfdata.queued_tokens += cur.queued_tokens;
-							perfdata.past_minute_tokens += cur.past_minute_tokens;
-						} else {
-							//old horde api
-							perfdata.queued_requests += cur.queued_requests;
-							perfdata.worker_count += cur.worker_count;
-							perfdata.queued_tokens += cur.queued_tokens;
-							perfdata.past_minute_tokens += cur.past_minute_tokens;
-						}
-					}
-					document.body.classList.add("connected");
-					document.getElementById("connectstatus").innerHTML = "AI Horde";
-					document.getElementById("connectstatus").classList.add("color_offwhite");
-					render_gametext(false);
-
-					read_url_params_data();
-
-					if (popup_aiselect) {
-						display_endpoint_container();
-					}
-
-				}
-				else {
-					msgbox("Failed to connect to AI Horde Service!\nPlease check your network connection.<br><br>You may still be able to connect to an alternative service, <a href='#' class='color_blueurl' onclick='hide_popups();display_endpoint_container()'>click here to view options</a>.","Error Encountered",true);
-					document.body.classList.remove("connected");
-					document.getElementById("connectstatus").innerHTML = "Offline Mode";
-					document.getElementById("connectstatus").classList.remove("color_offwhite");
-					render_gametext(false);
-				}
-			});
 		}
 
 
@@ -5236,7 +5103,7 @@ Current version indicated by LITEVER below.
 		//fetch the stable horde model list once and store it forever, it likely wont change
 		if(!image_models_fetched)
 		{
-			fetch(stablehorde_model_endpoint)
+			fetch("")
 				.then(x => x.json())
 				.then(shdata => {
 					image_models_fetched = true;
@@ -5588,7 +5455,7 @@ Current version indicated by LITEVER below.
 			if (userinput != null && userinput!="") {
 				localsettings.saved_dalle_url = userinput.trim();
 			}else{
-				localsettings.saved_dalle_url = (default_oai_base + "/v1" + default_oai_image_endpoint);
+				localsettings.saved_dalle_url = ("" + "/v1" + default_oai_image_endpoint);
 			}
 		},false);
 	}
@@ -5623,7 +5490,7 @@ Current version indicated by LITEVER below.
 			if (userinput != null && userinput!="") {
 				localsettings.saved_oai_tts_url = userinput.trim();
 			}else{
-				localsettings.saved_oai_tts_url = (default_oai_base + "/v1" + default_oai_tts_endpoint);
+				localsettings.saved_oai_tts_url = ("" + "/v1" + default_oai_tts_endpoint);
 			}
 		},false);
 	}
@@ -6304,7 +6171,7 @@ Current version indicated by LITEVER below.
 			new_save_storyobj.savedsettings = JSON.parse(JSON.stringify(localsettings));
 			//redact some values
 			new_save_storyobj.savedsettings.my_api_key = "0000000000";
-			new_save_storyobj.savedsettings.home_cluster = text_hordes[0].baseurl;
+			new_save_storyobj.savedsettings.home_cluster = "";
 			new_save_storyobj.savedsettings.saved_oai_key = "";
 			new_save_storyobj.savedsettings.saved_dalle_key = "";
 			new_save_storyobj.savedsettings.saved_dalle_url = "";
@@ -8670,138 +8537,12 @@ Current version indicated by LITEVER below.
 		}
 		toggleoaichatcompl();
 	}
-	function oai_fetch_models()
-	{
-		let desired_oai_key = document.getElementById("custom_oai_key").value.trim();
-		let desired_oai_ep = document.getElementById("custom_oai_endpoint").value.trim();
-		desired_oai_ep = transform_oai_ep(desired_oai_ep);
 
-		let oaiheaders = {};
-		if(desired_oai_key!=""){
-			oaiheaders["Authorization"] = "Bearer " + desired_oai_key;
-		};
-		if (!desired_oai_ep.toLowerCase().includes("api.mistral.ai")) {
-			if(desired_oai_key!="")
-			{
-				oaiheaders["x-api-key"] = desired_oai_key;
-			}
-		}else{
-			if(desired_oai_key=="")
-			{
-				msgbox("MistralAI API requires an API key to fetch model list!");
-				return;
-			}
-		}
-
-		let isOpenrouter = (document.getElementById("customapidropdown").value==3);
-		let dropdown = get_oai_model_dropdown();
-		fetch((desired_oai_ep + oai_models_endpoint), {
-			method: 'GET',
-			headers: oaiheaders,
-			referrerPolicy: 'no-referrer',
-		})
-		.then((response) => response.json())
-		.then((data) => {
-			console.log(data);
-
-			//hack for together.xyz
-			if(data!=null && data.data==null && data.length>0 && data[0] && data[0].id && data[0].id!="")
-			{
-				console.log("together.xyz workaround hack");
-				data = { "data": data }; //fix for their bad format
-			}
-
-			if (!data.error && data.data && data.data.length > 0)
-			{
-				var lastOption = dropdown.lastElementChild;
-				for (var i = dropdown.options.length - 1; i >= 0; i--) {
-					var option = dropdown.options[i];
-					dropdown.remove(option);
-				}
-				let selidx = 0;
-				for(var i = 0; i < data.data.length; i++) {
-					var opt = data.data[i];
-					var el = document.createElement("option");
-					el.textContent = opt.id;
-					el.value = opt.id;
-					if(isOpenrouter && opt.id=="mistralai/mistral-7b-instruct")
-					{
-						selidx = i;
-					}
-					dropdown.appendChild(el);
-				}
-				dropdown.appendChild(lastOption);
-				dropdown.selectedIndex = selidx;
-				oai_model_change(true);
-			}
-			else
-			{
-				msgbox(JSON.stringify(data.error.message),"Error Encountered",false,false);
-			}
-		})
-		.catch(error => {
-			console.log("Error: " + error);
-			msgbox("Error: " + error,"Error Encountered",false,false,()=>{
-				hide_msgbox();
-			});
-		});
-	}
-
-	function toggleclaudemodel()
-	{
-		if (document.getElementById("custom_claude_model").value.toLowerCase().includes("claude-3"))
-		{
-			document.getElementById("claudesystemprompt").classList.remove("hidden");
-			document.getElementById("claudejailbreakprompt").classList.remove("hidden");
-			document.getElementById("clauderenamecompatdiv").classList.add("hidden");
-		}
-		else
-		{
-			document.getElementById("claudesystemprompt").classList.add("hidden");
-			document.getElementById("claudejailbreakprompt").classList.add("hidden");
-			document.getElementById("clauderenamecompatdiv").classList.remove("hidden");
-		}
-	}
-
-	let openrouter_fetch_attempted = false;
-	let oai_custom_fetch_attempted = false;
-	function try_fetch_oai_models_auto()
-	{
-		//only for apis that don't gate the model list
-		if (document.getElementById("custom_oai_endpoint").value!="" &&
-		document.getElementById("custom_oai_endpoint").value.toLowerCase().includes("featherless.ai"))
-		{
-			if(!oai_custom_fetch_attempted)
-			{
-				oai_custom_fetch_attempted = true;
-				let dropdown = document.getElementById("custom_oai_model");
-				if(dropdown.options.length < 40)
-				{
-					oai_fetch_models(); //autofetch models
-				}
-			}
-		}
-	}
 	function customapi_dropdown(force_autotoggle_chatcompl = false)
 	{
 		let epchoice = document.getElementById("customapidropdown").value;
-		document.getElementById("oaicustom").classList.add("hidden");
 		document.getElementById("koboldcustom").classList.add("hidden");
-		document.getElementById("claudecustom").classList.add("hidden");
-		document.getElementById("palmcustom").classList.add("hidden");
-		document.getElementById("custom_oai_model").classList.add("hidden");
-		document.getElementById("custom_openrouter_model").classList.add("hidden");
-		document.getElementById("custom_mistralai_model").classList.add("hidden");
-		document.getElementById("custom_featherless_model").classList.add("hidden");
-		document.getElementById("hordeloadmodelcontainer").classList.add("hidden");
-		document.getElementById("coherecustom").classList.add("hidden");
-
 		if(epchoice==0)
-		{
-			document.getElementById("hordeloadmodelcontainer").classList.remove("hidden");
-			display_horde_models();
-		}
-		else if(epchoice==1)
 		{
 			document.getElementById("koboldcustom").classList.remove("hidden");
 			if(!localflag)
@@ -8809,86 +8550,6 @@ Current version indicated by LITEVER below.
 				document.getElementById("customkoboldendpoint").value = localsettings.saved_kai_addr;
 				document.getElementById("customkoboldkey").value = localsettings.saved_kai_key;
 			}
-		}
-		else if(epchoice==2 || epchoice==3 || epchoice==7 || epchoice==8)
-		{
-			document.getElementById("oaicustom").classList.remove("hidden");
-			document.getElementById("openrouterdesc").classList.add("hidden");
-			document.getElementById("mistralaidesc").classList.add("hidden");
-			document.getElementById("featherlessdesc").classList.add("hidden");
-			document.getElementById("oaidesc").classList.add("hidden");
-			if(epchoice==2)
-			{
-				document.getElementById("oaidesc").classList.remove("hidden");
-				document.getElementById("custom_oai_model").classList.remove("hidden");
-				document.getElementById("custom_oai_endpoint").classList.remove("hidden");
-				document.getElementById("custom_oai_key").value = localsettings.saved_oai_key;
-				if (localflag) {
-					document.getElementById("custom_oai_endpoint").value = localprotocol + localmodehost + ":" + localmodeport + "/v1";
-				} else {
-					document.getElementById("custom_oai_endpoint").value = (localsettings.saved_oai_addr ? localsettings.saved_oai_addr : default_oai_base);
-				}
-				try_fetch_oai_models_auto();
-			}
-			else if(epchoice==7)
-			{
-				document.getElementById("custom_mistralai_model").classList.remove("hidden");
-				document.getElementById("mistralaidesc").classList.remove("hidden");
-				document.getElementById("custom_oai_endpoint").classList.add("hidden");
-				document.getElementById("custom_oai_key").value = localsettings.saved_mistralai_key;
-				document.getElementById("custom_oai_endpoint").value = default_mistralai_base;
-			}
-			else if(epchoice==8)
-			{
-				document.getElementById("custom_featherless_model").classList.remove("hidden");
-				document.getElementById("featherlessdesc").classList.remove("hidden");
-				document.getElementById("custom_oai_endpoint").classList.add("hidden");
-				document.getElementById("custom_oai_key").value = localsettings.saved_featherless_key;
-				document.getElementById("custom_oai_endpoint").value = default_featherless_base;
-				try_fetch_oai_models_auto();
-			}
-			else //openrouter supports autofetch
-			{
-				document.getElementById("openrouterdesc").classList.remove("hidden");
-				document.getElementById("custom_openrouter_model").classList.remove("hidden");
-				document.getElementById("custom_oai_endpoint").value = default_openrouter_base;
-				document.getElementById("custom_oai_endpoint").classList.add("hidden");
-				document.getElementById("custom_oai_key").value = localsettings.saved_openrouter_key;
-				if(!openrouter_fetch_attempted)
-				{
-					openrouter_fetch_attempted = true;
-					let dropdown = document.getElementById("custom_openrouter_model");
-					if(dropdown.options.length < 10)
-					{
-						oai_fetch_models(); //autofetch openrouter models
-					}
-				}
-			}
-			oai_model_change(ep_should_always_use_chat_completions() || force_autotoggle_chatcompl);
-			toggleoaichatcompl();
-		}
-		else if(epchoice==4)
-		{
-			toggleclaudemodel();
-			document.getElementById("claudecustom").classList.remove("hidden");
-			document.getElementById("custom_claude_key").value = localsettings.saved_claude_key;
-			document.getElementById("custom_claude_endpoint").value = (localsettings.saved_claude_addr?localsettings.saved_claude_addr:default_claude_base);
-			document.getElementById("claudesystemprompt").value = localsettings.saved_claude_jailbreak;
-			document.getElementById("claudejailbreakprompt").value = localsettings.saved_claude_jailbreak2;
-		}
-		else if(epchoice==5)
-		{
-			document.getElementById("palmcustom").classList.remove("hidden");
-			document.getElementById("custom_palm_key").value = localsettings.saved_palm_key;
-			document.getElementById("gemini_system_instruction").value = localsettings.saved_palm_jailbreak;
-			togglepalmmodel();
-		}
-		else if(epchoice==6)
-		{
-			document.getElementById("coherecustom").classList.remove("hidden");
-			document.getElementById("custom_cohere_key").value = localsettings.saved_cohere_key;
-			document.getElementById("cohere_preamble").value = localsettings.saved_cohere_preamble;
-			togglecoherepreamble();
 		}
 	}
 
@@ -8944,11 +8605,7 @@ Current version indicated by LITEVER below.
 				desired_oai_ep = desired_oai_ep + "/v1";
 			}
 		}
-		//fix common url typos if detected
-		if(desired_oai_ep!="" && desired_oai_ep.toLowerCase().startsWith("https://featherless.ai"))
-		{
-			desired_oai_ep = desired_oai_ep.replace("https://featherless.ai","https://api.featherless.ai")
-		}
+
 		return desired_oai_ep;
 	}
 
@@ -8963,11 +8620,7 @@ Current version indicated by LITEVER below.
 		custom_cohere_key = "";
 
 		let epchoice = document.getElementById("customapidropdown").value;
-		if(epchoice==0) //ai horde
-		{
-			confirm_horde_models();
-		}
-		else if(epchoice==1) //connect to kobold endpoint
+		if(epchoice==0) //connect to kobold endpoint
 		{
 			let desiredkoboldendpoint = document.getElementById("customkoboldendpoint").value;
 			let desiredkoboldkey = document.getElementById("customkoboldkey").value;
@@ -9203,7 +8856,7 @@ Current version indicated by LITEVER below.
 												localflag = false;
 												hide_popups();
 												restore_endpoint_dropdowns();
-												document.getElementById("customapidropdown").value = "1";
+												document.getElementById("customapidropdown").value = "0";
 												render_gametext(false);
 												display_endpoint_container();
 											},()=>{},true);
@@ -9226,7 +8879,7 @@ Current version indicated by LITEVER below.
 
 						let is_local = is_local_url(custom_kobold_endpoint);
 
-						if (uses_cors_proxy || is_local) {
+						if (is_local) {
 							if(is_local && sublocalpathname!="")
 							{
 								sublocalpathname = ""; //one more try
@@ -9251,7 +8904,6 @@ Current version indicated by LITEVER below.
 								render_gametext();
 							}
 						} else {
-							uses_cors_proxy = true; //fallback to cors proxy, this will remain for rest of session
 							connect_custom_endpoint(); //one more try
 						}
 					});
@@ -9264,7 +8916,7 @@ Current version indicated by LITEVER below.
 
 			if(desired_oai_ep=="")
 			{
-				desired_oai_ep = document.getElementById("custom_oai_endpoint").value = default_oai_base;
+				desired_oai_ep = document.getElementById("custom_oai_endpoint").value = "";
 			}
 
 			desired_oai_ep = transform_oai_ep(desired_oai_ep);
@@ -9584,45 +9236,6 @@ Current version indicated by LITEVER below.
 			onDoneCallback(selected_models);
 			return;
 		}
-
-		if(cached_model_list!=null && cached_model_list.length>1 && performance.now() < stale_cached_model_time)
-		{
-			console.log("Reuse cached model list");
-			onDoneCallback(cached_model_list);
-			return;
-		}
-
-		//fetch the model list
-		multifetch(models_endpoints,(resArr,errArr)=>{
-			if(resArr && resArr.length>0)
-			{
-				let mdls = [];
-				for(let i=0;i<resArr.length;++i)
-				{
-					let cur = resArr[i].data;
-					if (cur)
-					{
-						for (let x = 0; x < cur.length; ++x) {
-							let mdl = cur[x];
-							mdl.cluster = resArr[i].cluster;
-							mdls.push(mdl);
-						}
-					}
-				}
-
-				cached_model_list = mdls;
-				stale_cached_model_time = performance.now() + 30000; //cache model list for 30s
-				onDoneCallback(mdls);
-			}
-			else
-			{
-				console.log("Error: " + errArr);
-				if(!is_popup_open())
-				{
-					msgbox("Failed to fetch models!\nPlease check your network connection.");
-				}
-			}
-		});
 	}
 
 	function fetch_koboldcpp_perf()
@@ -12936,485 +12549,6 @@ Current version indicated by LITEVER below.
 				}
 				update_custom_kobold_endpoint_model_display();
 			}
-			else if (custom_oai_key != "")//handle for OAI
-			{
-
-				let targetep = (custom_oai_endpoint + oai_submit_endpoint);
-
-				let scaled_rep_pen = 0;
-				if(submit_payload.params.presence_penalty > 0)
-				{
-					scaled_rep_pen = submit_payload.params.presence_penalty;
-				}else{
-					//original range between 1 and 3, scale to 0 and 2
-					scaled_rep_pen = (submit_payload.params.rep_pen - 1.0);
-				}
-				//logit bias prevents <|endoftext|>
-				let oai_payload =
-				{
-					"max_tokens": submit_payload.params.max_length,
-					"model": custom_oai_model,
-					"temperature": submit_payload.params.temperature,
-					"top_p": submit_payload.params.top_p,
-				}
-				if(!targetep.toLowerCase().includes("api.mistral.ai"))
-				{
-					//mistral api does not support presence pen
-					oai_payload.presence_penalty = scaled_rep_pen;
-				}
-				if(document.getElementById("useoainonstandard").checked || targetep.toLowerCase().includes("featherless.ai"))
-				{
-					//featherless api supports additional fields, include them
-					oai_payload.top_k = (submit_payload.params.top_k<1?300:submit_payload.params.top_k);
-					oai_payload.min_p = localsettings.min_p;
-					if(submit_payload.params.sampler_seed>=1)
-					{
-						oai_payload.seed = submit_payload.params.sampler_seed;
-					}
-					oai_payload.top_a = localsettings.top_a;
-				}
-				if(submit_payload.params.logit_bias && JSON.stringify(submit_payload.params.logit_bias) != '{}')
-				{
-					oai_payload.logit_bias = submit_payload.params.logit_bias;
-				}
-
-				let is_using_o1 = custom_oai_model.toLowerCase().startsWith("o1-mini") || custom_oai_model.toLowerCase().startsWith("o1-preview");
-				if(is_using_o1)
-				{
-					//o1 does not support ANY customization
-					oai_payload =
-					{
-						//remove max tokens due to huge amount needed
-						//"max_completion_tokens": submit_payload.params.max_length,
-						"model": custom_oai_model
-					}
-				}
-
-				if (document.getElementById("useoaichatcompl").checked) {
-					let mainoaibody = submit_payload.prompt; //can be string or array
-					if(insertAIVisionImages.length>0)
-					{
-						mainoaibody = [
-							{
-								"type": "text",
-								"text": mainoaibody
-							}
-						];
-						for(let i=0;i<insertAIVisionImages.length;++i)
-						{
-							let oaiimg = {
-								"type": "image_url",
-								"image_url": {
-									"url": ("data:image/jpeg;base64,"+insertAIVisionImages[i])
-								}
-							};
-							mainoaibody.push(oaiimg);
-						}
-					}
-					let myrole = (localsettings.saved_oai_role==2)?"system":(localsettings.saved_oai_role==1?"assistant":"user");
-					oai_payload.messages = [];
-					targetep = (custom_oai_endpoint + oai_submit_endpoint_turbo);
-					if (document.getElementById("jailbreakprompt") && document.getElementById("jailbreakprompt").checked && document.getElementById("jailbreakprompttext").value!="") {
-						let addrole = document.getElementById("jailbreakprompttextrole").value;
-						addrole = ((addrole==2)?"system":(addrole==1?"assistant":"user"));
-						oai_payload.messages.push({ "role": addrole, "content": document.getElementById("jailbreakprompttext").value });
-					}
-					oai_payload.messages.push({ "role": myrole, "content": mainoaibody });
-					if (document.getElementById("jailbreakprompt2") && document.getElementById("jailbreakprompt2").checked && document.getElementById("jailbreakprompttext2").value!="") {
-						let addrole = document.getElementById("jailbreakprompttext2role").value;
-						addrole = ((addrole==2)?"system":(addrole==1?"assistant":"user"));
-						oai_payload.messages.push({ "role": addrole, "content": document.getElementById("jailbreakprompttext2").value });
-					}
-
-				}
-				else
-				{
-					//apply custom logit bias for official OAI only
-					let needbaneos = (custom_oai_endpoint.toLowerCase().includes("api.openai.com") && determine_if_ban_eos(input_was_empty));
-
-					if(needbaneos)
-					{
-						if(oai_payload.logit_bias)
-						{
-							oai_payload.logit_bias["50256"] = -100;
-						}else{
-							oai_payload.logit_bias = { "50256": -100 };
-						}
-					}
-					oai_payload.prompt = submit_payload.prompt;
-
-					//lets try adding stop sequences, limit to first 4
-					oai_payload.stop = get_stop_sequences().slice(0, 4);
-				}
-
-				last_request_str = JSON.stringify(oai_payload);
-				let oaiheaders = {
-					'Content-Type': 'application/json',
-					'Authorization': 'Bearer ' + custom_oai_key
-				};
-
-				if(!targetep.toLowerCase().includes("openrouter.ai") &&
-				!targetep.toLowerCase().includes("api.mistral.ai"))
-				{
-					oaiheaders["x-api-key"] = custom_oai_key;
-				}
-
-				if(targetep.toLowerCase().includes("openrouter.ai"))
-				{
-					oaiheaders["HTTP-Referer"] = "https://lite.koboldai.net";
-				}
-
-				if(is_browser_supports_sse() && document.getElementById("oaistreaming").checked)
-				{
-					oai_payload.stream = true;
-					oai_api_stream_sse(targetep,oai_payload,oaiheaders);
-				}
-				else
-				{
-					oai_api_sync_req(targetep,oai_payload,oaiheaders);
-				}
-			}
-			else if (custom_claude_key != "")//handle for Claude
-			{
-				let claudev3mode = custom_claude_model.toLowerCase().includes("claude-3");
-				let actualep = (custom_claude_endpoint + (claudev3mode?claude_submit_endpoint_v3:claude_submit_endpoint));
-				let targetep = actualep;
-				if(custom_claude_endpoint.toLowerCase().includes("api.anthropic.com"))
-				{
-					//official API has broken cors settings
-					targetep = apply_proxy_url(actualep,true);
-				}
-				let claude_payload = null;
-				if(claudev3mode)
-				{
-					let sysprompt = document.getElementById("claudesystemprompt").value;
-					let assistantprompt = document.getElementById("claudejailbreakprompt").value;
-					claude_payload =
-					{
-						"model": custom_claude_model,
-						"messages": [],
-						"max_tokens": submit_payload.params.max_length,
-						"top_k": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
-						"temperature": submit_payload.params.temperature,
-						"top_p": submit_payload.params.top_p,
-					};
-					claude_payload.messages.push({"role": "user", "content": submit_payload.prompt})
-					if(sysprompt)
-					{
-						claude_payload.system = sysprompt;
-					}
-					if(localsettings.opmode==1)
-					{
-						claude_payload.system = "Always respond with a direct partial continuation of the story immediately from the latest word.";
-						if(sysprompt)
-						{
-							claude_payload.system = sysprompt +"\n"+ claude_payload.system;
-						}
-					}
-					if(assistantprompt)
-					{
-						claude_payload.messages.push({"role": "assistant", "content": assistantprompt});
-					}
-
-				}
-				else
-				{
-					claude_payload =
-					{
-						"prompt": submit_payload.prompt,
-						"max_tokens_to_sample": submit_payload.params.max_length,
-						"model": custom_claude_model,
-						"top_k": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
-						"temperature": submit_payload.params.temperature,
-						"top_p": submit_payload.params.top_p,
-					};
-
-					if(document.getElementById("clauderenamecompat").checked)
-					{
-						let assistant_correct_case = "Assistant:";
-						if(!claude_payload.prompt.toLowerCase().trim().startsWith('human:'))
-						{
-							claude_payload.prompt = "Human: "+claude_payload.prompt;
-						}
-						if(!claude_payload.prompt.toLowerCase().trim().endsWith(assistant_correct_case.toLowerCase()))
-						{
-							if(localsettings.opmode==1)
-							{
-								claude_payload.prompt = claude_payload.prompt + " \n"+assistant_correct_case+" Here is a continuation of the story: \n"+assistant_correct_case;
-							}
-							else
-							{
-								claude_payload.prompt = claude_payload.prompt + " "+assistant_correct_case;
-							}
-						}
-						//trim end
-						claude_payload.prompt = claude_payload.prompt.replace(/[\t\r\n ]+$/, '');
-						//replace final assistant with fixed case
-						claude_payload.prompt = claude_payload.prompt.slice(0, -(assistant_correct_case.length))+assistant_correct_case;
-					}
-				}
-
-
-				last_request_str = JSON.stringify(claude_payload);
-
-				let claudeheaders = {
-					'Content-Type': 'application/json',
-					'x-api-key': custom_claude_key,
-					'Authorization': 'Bearer '+custom_claude_key,
-				};
-				if(claudev3mode)
-				{
-					claudeheaders["anthropic-version"] = '2023-06-01';
-				}else{
-					claudeheaders["anthropic-version"] = '2023-01-01';
-				}
-
-				fetch(targetep, {
-					method: 'POST',
-					headers: claudeheaders,
-					body: JSON.stringify(claude_payload),
-					referrerPolicy: 'no-referrer',
-				})
-					.then((response) => response.json())
-					.then((data) => {
-						console.log("sync finished response: " + JSON.stringify(data));
-						if(custom_claude_key != "" && data.content && data.content.length > 0 && data.content[0].text)
-						{
-							data.completion = data.content[0].text; //for claudev3
-							if(localsettings.opmode==1 && gametext_arr.length>0 && data.completion!="")
-							{
-								data.completion = cleanup_story_completion(data.completion);
-							}
-						}
-						if (custom_claude_key != "" && data.completion != null && data.completion != "")
-						{
-							synchro_polled_response = data.completion;
-						}
-						else {
-							//error occurred, maybe captcha failed
-							console.error("error occurred in Claude generation");
-							clear_poll_flags();
-							render_gametext();
-							msgbox("Error occurred during text generation: " + formatError(data));
-						}
-					})
-					.catch((error) => {
-						console.error('Error:', error);
-						clear_poll_flags();
-						render_gametext();
-						msgbox("Error while submitting prompt: " + error);
-					});
-			}
-			else if (custom_palm_key != "")//handle for PaLM
-			{
-				let urlbase = default_palm_base;
-				let payload = {"prompt":{"text":submit_payload.prompt},
-				"temperature":submit_payload.params.temperature,
-				"maxOutputTokens": submit_payload.params.max_length,
-				"topP": submit_payload.params.top_p,
-				"topK": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
-				"candidateCount":1};
-
-				let mdlname = document.getElementById("custom_palm_model").value;
-
-				if(mdlname=="text-bison-001")
-				{
-					payload.safetySettings = [
-						{
-						"category": "HARM_CATEGORY_TOXICITY",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_UNSPECIFIED",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_VIOLENCE",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_SEXUAL",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_DEROGATORY",
-						"threshold": "BLOCK_NONE"
-						}
-					];
-				}
-				else //assume gemini
-				{
-					if(localsettings.opmode==1)
-					{
-						submit_payload.prompt = submit_payload.prompt + " \nASSISTANT: Here is a direct partial continuation of the story without repeating it: \nASSISTANT:";
-						submit_payload.params.max_length += 100; //add length
-					}
-
-					urlbase = default_gemini_base + mdlname + default_gemini_suffix;
-					payload = {
-					"contents": [
-						{
-						"parts": [
-							{
-							"text": submit_payload.prompt
-							}
-						]
-						}
-					],
-					"safetySettings": [
-						{
-						"category": "HARM_CATEGORY_HARASSMENT",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_HATE_SPEECH",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-						"threshold": "BLOCK_NONE"
-						},
-						{
-						"category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-						"threshold": "BLOCK_NONE"
-						}
-					],
-					"generationConfig": {
-						"temperature":submit_payload.params.temperature,
-						"maxOutputTokens": submit_payload.params.max_length,
-						"topP": submit_payload.params.top_p,
-						"topK": (submit_payload.params.top_k<1?300:submit_payload.params.top_k),
-						"candidateCount":1,
-						"stopSequences": []
-					}
-					};
-
-					let sysinst = document.getElementById("gemini_system_instruction").value;
-					if(sysinst!="" && (mdlname=="gemini-1.5-pro-latest" || mdlname=="gemini-1.5-pro-001" || mdlname=="gemini-1.5-pro-002" || mdlname=="gemini-1.5-flash-latest" || mdlname=="gemini-1.5-pro-exp-0801"))
-					{
-						payload["systemInstruction"] = {
-							"role": "system",
-							"parts": [
-							{
-								"text": sysinst
-							}
-							]
-						};
-					}
-				}
-
-				let targetep = urlbase + custom_palm_key;
-				last_request_str = JSON.stringify(payload);
-
-				fetch(targetep, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify(payload),
-					referrerPolicy: 'no-referrer',
-				})
-					.then((response) => response.json())
-					.then((data) => {
-						console.log("sync finished response: " + JSON.stringify(data));
-						if (custom_palm_key != "" && data.candidates != null && data.candidates.length>0 && data.candidates[0].output && data.candidates[0].output != "") {
-							synchro_polled_response = data.candidates[0].output;
-						}else if (custom_palm_key != "" && data.candidates != null && data.candidates.length>0 && data.candidates[0].content && data.candidates[0].content.parts != null && data.candidates[0].content.parts.length>0) {
-							synchro_polled_response = data.candidates[0].content.parts[0].text;
-							//try to handle the stripping of spaces
-							if(localsettings.opmode==1 && gametext_arr.length>0 && synchro_polled_response!="")
-							{
-								synchro_polled_response = cleanup_story_completion(synchro_polled_response);
-							}
-						}
-						else {
-							//error occurred, maybe captcha failed
-							console.error("error occurred in PaLM generation");
-							clear_poll_flags();
-							render_gametext();
-							msgbox("Error occurred during text generation: " + formatError(data));
-						}
-					})
-					.catch((error) => {
-						console.error('Error:', error);
-						clear_poll_flags();
-						render_gametext();
-						msgbox("Error while submitting prompt: " + error);
-					});
-			}
-			else if (custom_cohere_key != "")//handle for Cohere
-			{
-				let targetep = default_cohere_base;
-
-				let scaled_rep_pen = 0;
-				if(submit_payload.params.presence_penalty > 0)
-				{
-					scaled_rep_pen = submit_payload.params.presence_penalty;
-				}else{
-					//original range between 1 and 3, scale to 0 and 2
-					scaled_rep_pen = (submit_payload.params.rep_pen - 1.0);
-				}
-
-				let cohere_payload =
-				{
-					"max_tokens": submit_payload.params.max_length,
-					"model": custom_cohere_model,
-					"presence_penalty": scaled_rep_pen,
-					"temperature": submit_payload.params.temperature,
-					"p": submit_payload.params.top_p,
-					"message": submit_payload.prompt
-				}
-
-				if (document.getElementById("useocoherepreamble").checked) {
-					cohere_payload.preamble = document.getElementById("cohere_preamble").value
-				}
-
-				if (document.getElementById("usecohereweb").checked) {
-					cohere_payload.connectors = [{"id": "web-search"}];
-					cohere_payload.max_tokens += 256;
-				}
-
-				last_request_str = JSON.stringify(cohere_payload);
-				let cohere_headers = {
-					'Content-Type': 'application/json',
-					'Authorization': 'Bearer ' + custom_cohere_key
-				};
-
-				fetch(targetep, {
-					method: 'POST',
-					headers: cohere_headers,
-					body: JSON.stringify(cohere_payload),
-					referrerPolicy: 'no-referrer',
-				})
-					.then((response) => response.json())
-					.then((data) => {
-						console.log("sync finished response: " + JSON.stringify(data));
-						if (custom_cohere_key != "" && data && data.text) {
-							if (data.text) {
-								synchro_polled_response = data.text
-							}
-							else {
-								console.error("Error, unknown Cohere response");
-								clear_poll_flags();
-								render_gametext();
-								msgbox("Error, unknown Cohere response");
-							}
-						}
-						else {
-							//error occurred, maybe captcha failed
-							console.error("error occurred in Cohere generation");
-							clear_poll_flags();
-							render_gametext();
-							msgbox("Error occurred during text generation: " + formatError(data));
-						}
-					})
-					.catch((error) => {
-						console.error('Error:', error);
-						clear_poll_flags();
-						render_gametext();
-						msgbox("Error while submitting prompt: " + error);
-					});
-			}
 			else {
 				console.log("Unknown sync endpoint!");
 			}
@@ -13642,7 +12776,7 @@ Current version indicated by LITEVER below.
 		if(localsettings.generate_images_mode==1) //horde
 		{
 
-			fetch(stablehorde_submit_endpoint, {
+			fetch("", {
 				method: 'POST', // or 'PUT'
 				headers: {
 					'Content-Type': 'application/json',
@@ -13787,7 +12921,7 @@ Current version indicated by LITEVER below.
 				],
 				"source_image": base64img
 			};
-			fetch(stablehorde_submit_interrogate_endpoint, {
+			fetch("", {
 				method: 'POST', // or 'PUT'
 				headers: {
 					'Content-Type': 'application/json',
@@ -14311,7 +13445,7 @@ Current version indicated by LITEVER below.
 			let img = interrogation_db[key];
 			if (img.done == false && img.poll_category==1) {
 				//call check
-				fetch(stablehorde_output_interrogate_endpoint + "/" + key)
+				fetch("" + "/" + key)
 					.then(x => x.json())
 					.then((data) => {
 						console.log('pollimg result:', data);
@@ -14364,7 +13498,7 @@ Current version indicated by LITEVER below.
 			let img = image_db[key];
 			if (img.done == false && img.poll_category==1) {
 				//call check
-				fetch(stablehorde_poll_endpoint + "/" + key)
+				fetch("" + "/" + key)
 					.then(x => x.json())
 					.then((data) => {
 						console.log('pollimg result:', data);
@@ -14376,7 +13510,7 @@ Current version indicated by LITEVER below.
 						else if (data.done == true) {
 							//fetch final image
 							img.done = true;
-							fetch(stablehorde_output_endpoint + "/" + key)
+							fetch("" + "/" + key)
 								.then(y => y.json())
 								.then((finalimg) => {
 									console.log('finalimg recv for ' + key);
@@ -16722,35 +15856,6 @@ Current version indicated by LITEVER below.
 	function update_prev_custom_endpoint_type()
 	{
 		localsettings.prev_custom_endpoint_type = 0;
-		if (custom_kobold_endpoint != "") {
-			localsettings.prev_custom_endpoint_type = 1;
-		}
-		else if(custom_oai_key!="")
-		{
-			localsettings.prev_custom_endpoint_type = 2;
-			if(custom_oai_endpoint.toLowerCase().includes("openrouter.ai"))
-			{
-				localsettings.prev_custom_endpoint_type = 3;
-			}else if(custom_oai_endpoint.toLowerCase().includes("api.mistral.ai"))
-			{
-				localsettings.prev_custom_endpoint_type = 7;
-			}else if(custom_oai_endpoint.toLowerCase().includes("featherless.ai"))
-			{
-				localsettings.prev_custom_endpoint_type = 8;
-			}
-		}
-		else if(custom_claude_key!="")
-		{
-			localsettings.prev_custom_endpoint_type = 4;
-		}
-		else if(custom_palm_key!="")
-		{
-			localsettings.prev_custom_endpoint_type = 5;
-		}
-		else if(custom_cohere_key!="")
-		{
-			localsettings.prev_custom_endpoint_type = 6;
-		}
 
 	}
 
@@ -18309,56 +17414,11 @@ Current version indicated by LITEVER below.
 			<div style="padding: 4px;">
 			<select id="unusedcustomapidropdown" style="display: none;"></select>
 			<select title="Select your AI provider" style="padding:4px;" class="form-control" id="customapidropdown" onchange="customapi_dropdown(true)">
-				<option value="0">AI Horde</option>
-				<option value="1">KoboldAI Remote API</option>
-				<option value="2">OpenAI Compatible API</option>
-				<option value="3">OpenRouter API</option>
-				<option value="4">Claude By Anthropic API</option>
-				<option value="5">PaLM/Gemini By Google API</option>
-				<option value="6">Cohere API</option>
-				<option value="7">MistralAI API</option>
-				<option value="8">Featherless API</option>
+				<option value="0">KoboldAI Remote API</option>
+
 			</select>
 			</div>
 
-			<div class="aidgpopuplistheader anotelabel" id="hordeloadmodelcontainer">
-				The AI Horde is a service that generates text using crowdsourced GPUs run by independent volunteer workers. Avoid sending privacy sensitive information. <a href="#" class="color_blueurl" onclick="explain_horde()">Click here for more info</a>
-				<div class="justifyleft anotelabel">
-					<span style="float:left; text-align: left;">
-					Your AI Horde API Key <span class="helpicon">?
-						<span class="helptext">You need an API key to use AI Horde to generate text. Get one at
-							https://aihorde.net/register or use the anonymous key 0000000000.</span>
-					</span>
-					<br><a href="#" id="showownworkerslink" class="color_blueurl hidden" onclick="show_my_own_workers()">[Manage My Workers]</a></span>
-					<span class="color_green" style="float:right; text-align: right;" id="kudos_bal">
-						Need a Key?<br><a class='color_blueurl' href='https://aihorde.net/register'>(Register New User)</a>
-					</span>
-				</div>
-				<input class="form-control" type="password" placeholder="Enter API Key (or use 0000000000)" value=""
-					id="apikey" onfocus="focus_api_keys()" onblur="fetch_kudo_balance();blur_api_keys()">
-
-				<div class="justifyleft anotelabel">
-					Select AI Horde Model <span class="helpicon">?
-						<span class="helptext">These are the models currently provided by AI Horde volunteers.</span>
-					</span>
-					<span style="float:right;">
-					<a href="#" class="color_green" onclick="get_and_show_workers()">[See Current Volunteers] </a>
-					</span>
-					<select class="form-control" id="pickedmodel" size="7" multiple></select>
-				</div>
-
-				<div class="justifyleft anotelabel">
-					Select By Worker <span class="helpicon">?
-						<span class="helptext">This option explicitly assigns worker IDs, fixed based on the current workers available at model selection time.</span>
-					</span>
-					<input type="checkbox" id="manualworker" onclick="display_endpoint_container()">
-
-					<span style="float:right;">
-						<input class="settinglabel miniinput" style="margin: 3px; width: 90px;" type="text" placeholder="Quick Search" value="" id="modelquicksearch" oninput="model_quick_search()">
-					</span>
-				</div>
-
-			</div>
 
 			<div id="koboldcustom" class="aidgpopuplistheader anotelabel">
 				You can use this to connect to a KoboldAI instance running via a remote tunnel such as <span class="color_orange" style="font-weight: bold;">trycloudflare, localtunnel, ngrok</span>.<br><br>
@@ -18370,199 +17430,6 @@ Current version indicated by LITEVER below.
 					<input type="checkbox" id="remoteconsolelog">
 					<div class="box-label" title="Will display outputs to the remote endpoint's console logs, useful for debugging.">Show Console Logging</div>
 				</div>
-			</div>
-			<div id="oaicustom" class="aidgpopuplistheader anotelabel hidden">
-				<span id="oaidesc">
-				Entering your OpenAI API key will allow you to use KoboldAI Lite with their API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the OpenAI API and is not transmitted to us.<br>Only Temperature, Top-P and Repetition Penalty samplers are used.<br><br>
-				<span class="color_green" style="font-weight: bold;">Please input OpenAI API URL and Key.</span><br><br>
-				</span>
-				<span id="openrouterdesc" class="hidden">
-				Entering your OpenRouter API key will allow you to use KoboldAI Lite with their API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the OpenRouter API and is not transmitted to us.<br>Only Temperature, Top-P and Repetition Penalty samplers are used.<br><br>
-				<span class="color_green" style="font-weight: bold;">Please input OpenRouter Key.</span><br><br>
-				</span>
-				<span id="mistralaidesc" class="hidden">
-				Entering your MistralAI API key will allow you to use KoboldAI Lite with their API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the MistralAI API and is not transmitted to us.<br>Only Temperature and Top-P samplers are used.<br><br>
-				<span class="color_green" style="font-weight: bold;">Please input MistralAI Key.</span><br><br>
-				</span>
-				<span id="featherlessdesc" class="hidden">
-				Entering your Featherless API key will allow you to use KoboldAI Lite with their API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the Featherless API and is not transmitted to us.<br>Only Temperature, Top-P, Top-K, Min-P and Repetition Penalty samplers are used.<br><br>
-				<span class="color_green" style="font-weight: bold;">Please input Featherless Key.</span><br><br>
-				</span>
-
-				<input class="form-control" type="text" id="custom_oai_endpoint" placeholder="OpenAI API URL" value="" onblur="try_fetch_oai_models_auto()">
-				<input class="form-control" type="password" id="custom_oai_key" placeholder="API Key (Required)" value="" onfocus="focus_api_keys()" onblur="blur_api_keys()"><br>
-				Model Choice:<br>
-				<select style="padding:4px;display:inline;width:calc(100% - 220px)" class="form-control" id="custom_oai_model" onchange="oai_model_change(true)">
-					<option value="gpt-3.5-turbo-instruct" selected="selected">gpt-3.5-turbo-instruct</option>
-					<option value="davinci-002">davinci-002</option>
-					<option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-					<option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
-					<option value="gpt-4">gpt-4</option>
-					<option value="gpt-4-turbo">gpt-4-turbo</option>
-					<option value="gpt-4o">gpt-4o</option>
-					<option value="gpt-4-32k">gpt-4-32k</option>
-					<option value="o1-mini">o1-mini</option>
-					<option value="o1-preview">o1-preview</option>
-					<option style="display:none;" class="custom_model_option" value="custom">[Custom]</option>
-				</select>
-				<select style="padding:4px;display:inline;width:calc(100% - 220px)" class="form-control hidden" id="custom_openrouter_model" onchange="oai_model_change(true)">
-					<option value="openai/gpt-3.5-turbo">openai/gpt-3.5-turbo</option>
-					<option value="openai/gpt-4">openai/gpt-4</option>
-					<option value="openai/gpt-3.5-turbo-instruct">openai/gpt-3.5-turbo-instruct</option>
-					<option value="mistralai/mistral-7b-instruct" selected="selected">mistralai/mistral-7b-instruct</option>
-					<option value="gryphe/mythomax-l2-13b">gryphe/mythomax-l2-13b</option>
-					<option value="huggingfaceh4/zephyr-7b-beta">huggingfaceh4/zephyr-7b-beta</option>
-					<option value="anthropic/claude-2.0">anthropic/claude-2.0</option>
-					<option style="display:none;" class="custom_model_option" value="custom">[Custom]</option>
-				</select>
-				<select style="padding:4px;display:inline;width:calc(100% - 220px)" class="form-control hidden" id="custom_mistralai_model" onchange="oai_model_change(true)">
-					<option value="open-mistral-7b">open-mistral-7b</option>
-					<option value="mistral-tiny">mistral-tiny</option>
-					<option value="open-mistral-nemo">open-mistral-nemo</option>
-					<option value="mistral-small">mistral-small</option>
-					<option value="open-mixtral-8x22b">open-mixtral-8x22b</option>
-					<option value="mistral-medium">mistral-medium</option>
-					<option value="mistral-large-latest">mistral-large-latest</option>
-					<option style="display:none;" class="custom_model_option" value="custom">[Custom]</option>
-				</select>
-				<select style="padding:4px;display:inline;width:calc(100% - 220px)" class="form-control hidden" id="custom_featherless_model" onchange="oai_model_change(true)">
-					<option value="Sao10K/L3-8B-Lunaris-v1">Sao10K/L3-8B-Lunaris-v1</option>
-					<option value="Sao10K/L3-8B-Stheno-v3.2">Sao10K/L3-8B-Stheno-v3.2</option>
-					<option value="unsloth/llama-3-8b-Instruct">unsloth/llama-3-8b-Instruct</option>
-					<option value="beomi/Llama-3-Open-Ko-8B">beomi/Llama-3-Open-Ko-8B</option>
-					<option value="Sao10K/Fimbulvetr-11B-v2">Sao10K/Fimbulvetr-11B-v2</option>
-					<option value="HuggingFaceH4/zephyr-7b-beta">HuggingFaceH4/zephyr-7b-beta</option>
-					<option value="upstage/SOLAR-10.7B-Instruct-v1.0">upstage/SOLAR-10.7B-Instruct-v1.0</option>
-					<option value="alpindale/magnum-72b-v1">alpindale/magnum-72b-v1</option>
-					<option value="Sao10K/L3-70B-Euryale-v2.1">Sao10K/L3-70B-Euryale-v2.1</option>
-					<option value="alpindale/WizardLM-2-8x22B">alpindale/WizardLM-2-8x22B</option>
-					<option value="meta-llama/Meta-Llama-3.1-405B-Instruct">meta-llama/Meta-Llama-3.1-405B-Instruct</option>
-				<option style="display:none;" class="custom_model_option" value="custom">[Custom]</option>
-				</select>
-				<button type="button" class="btn btn-primary" style="display:inline;width:105px;" id="oaifetchlist" onclick="oai_fetch_models()">Fetch List</button>
-				<button type="button" class="btn btn-primary" style="display:inline;width:105px;" id="oaiusecustom" onclick="select_custom_oai_model()">Use Custom</button>
-				<div style="display:inline-flex">
-					<div><input type="checkbox" id="oaiaddversion" title="Add Endpoint Version Number" onchange="" checked>
-					<div class="box-label">Add Ver. Num</div></div>
-					<div><input type="checkbox" id="oaistreaming" title="Enable SSE Streaming" onchange="">
-					<div class="box-label">Streaming</div></div>
-					<div><input type="checkbox" id="useoaichatcompl" title="Use ChatCompletions API" onchange="toggleoaichatcompl()">
-					<div class="box-label">Chat-Completions API</div></div>
-					<div><input type="checkbox" id="useoainonstandard" title="Send Non-Standard Fields">
-					<div class="box-label">Non-Standard Fields</div></div>
-				</div>
-				<span id="useoaichatcomplbox" class="hidden" onload="toggleoaichatcompl();">
-					<br>
-					Main Message Role:
-					<select class="form-control" style="height: 25px; font-size:12px; padding:4px;display:inline;width:100px" id="oairoledropdown">
-						<option value="0" selected>User</option>
-						<option value="1">Assistant</option>
-						<option value="2">System</option>
-					</select>
-					<input type="checkbox" id="jailbreakprompt" onchange="togglejailbreak()">
-					<div class="box-label" title="Adds extra text at the start to improve AI response">Add Prefix</div>
-					<input type="checkbox" id="jailbreakprompt2" onchange="togglejailbreak2()">
-					<div class="box-label" title="Adds extra text to the end to improve AI response">Add Postfix</div>
-
-					<div style="display:flex" id="oaijailbreakpromptblock1">
-					<select class="form-control" style="height: 25px; font-size:12px; padding:4px;display:inline;width:100px" id="jailbreakprompttextrole">
-						<option value="0">User</option>
-						<option value="1">Assistant</option>
-						<option value="2" selected>System</option>
-					</select>
-					<textarea class="form-control" rows="3" style="resize: vertical; line-height:1.1; padding:4px; display:inline; width: 100%" type="text" id="jailbreakprompttext" placeholder="(Enter System Prefix)"
-					value="" onload="togglejailbreak();"></textarea>
-					</div>
-
-					<div style="display:flex" id="oaijailbreakpromptblock2">
-					<select class="form-control" style="height: 25px; font-size:12px; padding:4px;display:inline;width:100px" id="jailbreakprompttext2role">
-						<option value="0">User</option>
-						<option value="1" selected>Assistant</option>
-						<option value="2">System</option>
-					</select>
-					<textarea class="form-control" rows="3" style="resize: vertical; line-height:1.1; padding:4px;  display:inline; width: 100%;" type="text" id="jailbreakprompttext2" placeholder="(Enter Assistant Postfix)"
-					value="" onload="togglejailbreak2();"></textarea>
-					</div>
-
-
-				</span>
-
-			</div>
-			<div id="claudecustom" class="aidgpopuplistheader anotelabel hidden">
-				Entering your Claude API key will allow you to use KoboldAI Lite with their API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. <br><span class="color_red">At this time, the official Claude API has CORS restrictions and must be accessed with a CORS proxy. Your connection WILL be proxied.</span><br>Only Temperature, Top-P and Top-K samplers are used.<br><br>
-				<span class="color_green" style="font-weight: bold;">Please input Claude API URL and Key.</span><br><br>
-				<input class="form-control" type="text" id="custom_claude_endpoint" placeholder="Claude API URL" value="">
-				<input class="form-control" type="password" id="custom_claude_key" placeholder="Claude API Key (Required)" value="" onfocus="focus_api_keys()" onblur="blur_api_keys()"><br>
-				Model Choice:<br>
-				<select style="padding:4px;" class="form-control" id="custom_claude_model"  onload="toggleclaudemodel()"  onchange="toggleclaudemodel()">
-					<option value="claude-v1">claude-v1</option>
-					<option value="claude-v1-100k">claude-v1-100k</option>
-					<option value="claude-instant-v1">claude-instant-v1</option>
-					<option value="claude-instant-v1-100k">claude-instant-v1-100k</option>
-					<option value="claude-2" selected="selected">claude-2</option>
-					<option value="claude-2.1">claude-2.1</option>
-					<option value="claude-2.0">claude-2.0</option>
-					<option value="claude-3-opus-20240229">claude-3-opus</option>
-					<option value="claude-3-sonnet-20240229">claude-3-sonnet</option>
-					<option value="claude-3-haiku-20240307">claude-3-haiku</option>
-					<option value="claude-3-5-sonnet-20240620">claude-3.5-sonnet</option>
-				</select>
-				<input type="checkbox" id="claudeaddversion" onchange="" checked>
-				<div class="box-label" title="Add endpoint version">Add Endpoint Version</div>
-				<span id="clauderenamecompatdiv">
-				<input type="checkbox" id="clauderenamecompat" onchange="" checked>
-				<div class="box-label" title="Rename User and Bot tags to work with claude, force inject them otherwise">Claude Compatibility Rename Fix</div>
-				</span>
-
-				<textarea class="form-control hidden" rows="2" style="resize: vertical; line-height:1.1; padding:4px; display:inline; width: 100%" type="text" id="claudesystemprompt" placeholder="(Enter System Prompt)"
-				value="" onload=""></textarea>
-				<textarea class="form-control hidden" rows="2" style="resize: vertical; line-height:1.1; padding:4px; display:inline; width: 100%" type="text" id="claudejailbreakprompt" placeholder="(Enter Assistant Postfix)"
-				value="" onload=""></textarea>
-
-			</div>
-			<div id="palmcustom" class="aidgpopuplistheader anotelabel hidden">
-				Uses Gemini or PaLM Text Bison by Google.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the Gemini API and is not transmitted to us.<br><br>
-				<select style="padding:4px;" class="form-control" id="custom_palm_model" onchange="togglepalmmodel()">
-					<option value="gemini-pro" selected="selected">gemini-pro</option>
-					<option value="gemini-1.5-pro-001">gemini-1.5-pro-001</option>
-					<option value="gemini-1.5-pro-002">gemini-1.5-pro-002</option>
-					<option value="gemini-1.5-pro-latest">gemini-1.5-pro-latest</option>
-					<option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest</option>
-					<option value="gemini-1.5-pro-exp-0801">gemini-1.5-pro-exp-0801</option>
-					<option value="gemini-1.5-pro-exp-0827">gemini-1.5-pro-exp-0827</option>
-					<option value="text-bison-001">text-bison-001</option>
-				</select>
-				<span class="color_green" style="font-weight: bold;">Please input Gemini or PaLM API Key.</span><br><br>
-				<input class="form-control" type="password" id="custom_palm_key" placeholder="PaLM/Gemini API Key (Required)" value="" onfocus="focus_api_keys()" onblur="blur_api_keys()"><br>
-				<textarea class="form-control" rows="3" style="resize: vertical; line-height:1.1; padding:4px; display:inline; width: 100%" type="text" id="gemini_system_instruction" placeholder="(Enter System Instruction)"
-				value=""></textarea><br>
-			</div>
-			<div id="coherecustom" class="aidgpopuplistheader anotelabel hidden">
-				Uses Cohere's models through their own API.<br><br>
-				Note that KoboldAI Lite takes no responsibility for your usage or consequences of this feature. Your API key is used directly with the Cohere API and is not transmitted to us.<br><br>
-				<select style="padding:4px;" class="form-control" id="custom_cohere_model">
-					<option value="command" selected="selected">command</option>
-					<option value="command-r">command-r</option>
-					<option value="command-r-plus">command-r-plus</option>
-					<option value="command-r-08-2024">command-r-08-2024</option>
-					<option value="command-r-plus-08-2024">command-r-plus-08-2024</option>
-				</select>
-				<span class="color_green" style="font-weight: bold;">Please input Cohere API Key.</span><br><br>
-				<input class="form-control" type="password" id="custom_cohere_key" placeholder="Cohere API Key (Required)" value="" onfocus="focus_api_keys()" onblur="blur_api_keys()"><br>
-				<input type="checkbox" id="usecohereweb">
-				<div class="box-label" id="usecohereweblabel">Use WebSearch</div>
-				<input type="checkbox" id="useocoherepreamble" onchange="togglecoherepreamble()">
-				<div class="box-label" id="useocoherepreamblelabel">Use Preamble</div>
-
-				<span id="useocoherepreamblebox" class="hidden" onload="togglecoherepreamble();">
-					<textarea class="form-control" id="cohere_preamble" rows="3" style="resize: vertical; line-height:1.1; padding:4px; display:inline; width: 100%" type="text" placeholder="(Enter Preamble)" value=""></textarea>
-				</span>
 			</div>
 			<div class="popupfooter">
 				<button type="button" class="btn btn-primary" onclick="connect_custom_endpoint()">Ok</button>
@@ -20062,6 +18929,7 @@ Current version indicated by LITEVER below.
 <script>
 init();
 window.onload = loadDefaultFile;
+
 	
 //this is needed for PWA to work on chrome, so users can install KoboldAI Lite to device
 if ('serviceWorker' in navigator) {
